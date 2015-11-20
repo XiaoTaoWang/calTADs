@@ -246,7 +246,10 @@ def run():
                         
                     changeJobState(dbname, key, 'Stage-3', chrom = c, state = 2, region = region)
                 else:
-                    logger.info('      Someone is working on this region, skipping ...')
+                    if Stage_3 == 1:
+                        logger.info('      Someone is working on this region, skipping ...')
+                    elif Stage_3 == 2:
+                        logger.info('      Completed region, skipping ...')
                     continue
             
         check = checkForComplete(dbname, key)
@@ -456,7 +459,7 @@ def modDI(idata, window):
     corrected = np.zeros(chromLen)
     corrected[:Len] = mDI
     
-    return mDI
+    return corrected
     
     
 def learning(regionDIs):
