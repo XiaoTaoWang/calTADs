@@ -16,7 +16,7 @@ a modified DI of multiple scales subdivided TADs into smaller subtopologies (sub
 using 5C data. Here, I extend their algorithm to the whole genome and develop
 this software.
 
-calTADs are tested on traditional [4]_ and *in-situ* [5]_ Hi-C data, both generating
+*calTADs* are tested on traditional [4]_ and *in-situ* [5]_ Hi-C data, both generating
 reasonable results.
 
 Installation
@@ -31,6 +31,9 @@ Links
 Usage
 =====
 Open a terminal, type ``calTADs -h`` for help information.
+
+*calTADs* contains a process management system, so you can submit the same
+command repeatedly to utilize the parallel power as much as possible. 
 
 Examples
 ========

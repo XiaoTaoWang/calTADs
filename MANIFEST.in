@@ -1,2 +1,2 @@
-include README.rst INSTALL.rst
+include README.rst INSTALL.rst LICENSE
 recursive-include images *
