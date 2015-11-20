@@ -87,12 +87,12 @@ def run():
     if commands[0] not in ['-h', '--help']:
         ## Root Logger Configuration
         logger = logging.getLogger()
-        logger.setLevel(10)
+        logger.setLevel(20)
         
         filehandler = logging.handlers.RotatingFileHandler(args.logFile,
                                                            maxBytes = 500000,
                                                            backupCount = 5)
-        filehandler.setLevel('DEBUG')
+        filehandler.setLevel('INFO')
         formatter = logging.Formatter(fmt = '%(name)-14s %(levelname)-7s @ %(asctime)s: %(message)s',
                                       datefmt = '%m/%d/%y %H:%M:%S')
         
@@ -157,7 +157,7 @@ def run():
                 writeout.write('# ' + '\t'.join(title) + '\n')
                 chroms = workInters.labels
                 for c in chroms:
-                    logger.info('Chromosome %s ...', c)
+                    logger.info('  Chromosome %s ...', c)
                     idata = workInters.data[c]
                     Len = idata['bin2'].max() + 1
                     multiDI = np.zeros(Len, dtype = pooledTP)
@@ -193,18 +193,18 @@ def run():
             os.mkdir(tempdir)
         pieces = {}
         for c in chroms:
-            logger.info('Chromosome %s ...', c)
+            logger.info('  Chromosome %s ...', c)
             chromDI = DIs[DIs['chr'] == c]
-            logger.info('Split chromosome by large gaps ...')
+            logger.info('    Split chromosome by large gaps ...')
             regionDIs, forceStates = splitChrom(chromDI, args.maxgaplen, minregion, fields)
             for region in regionDIs:
                 tempfile = '.'.join([args.output, c, str(region[0]*args.resolution),
                                      str(region[1]*args.resolution), 'hmmdomain', 'txt'])
                 pieces[(c, region)] = os.path.join(tempdir, tempfile)
-            logger.info('Done!')
+            logger.info('    Done!')
             Stage_2 = getJobState(dbname, key, 'Stage-2', chrom = c)
             if Stage_2 == 0:
-                logger.info('Training HMM model ...')
+                logger.info('    Training HMM model ...')
                 changeJobState(dbname, key, 'Stage-2', chrom = c, state = 1)
                 try:
                     A, B, pi = learning(regionDIs)
@@ -214,16 +214,17 @@ def run():
                     changeJobState(dbname, key, 'Stage-2', chrom = c, state = 0)
                     traceback.print_exc(file = open(args.logFile, 'a'))
                 changeJobState(dbname, key, 'Stage-2', chrom = c, state = 2, params = (A, B, pi))
-                logger.info('Done!')
+                logger.info('    Done!')
             else:
                 while Stage_2 != 2:
                     Stage_2 = getJobState(dbname, key, 'Stage-2', chrom = c)
-                logger.info('HMM parameters have been learned by others, load them in ...')
+                logger.info('    HMM parameters have been learned by others, load them in ...')
                 A, B, pi = getParams(dbname, key, 'Stage-2', chrom = c)
+                logger.info('    Done!')
             
-            logger.info('Calling hierarchical domains using different scale DI tracks ...')
+            logger.info('    Calling hierarchical domains using different scale DI tracks ...')
             for region in regionDIs:
-                logger.info('Current region: chr%s, %d - %d', c,
+                logger.info('      Current region: chr%s, %d - %d', c,
                             region[0]*args.resolution, region[1]*args.resolution)
                 Stage_3 = getJobState(dbname, key, 'Stage-3', chrom = c, region = region)
                 if Stage_3 == 0:
@@ -239,7 +240,7 @@ def run():
                         traceback.print_exc(file = open(args.logFile, 'a'))
                     changeJobState(dbname, key, 'Stage-3', chrom = c, state = 2, region = region)
                 else:
-                    logger.info('Someone is working on this region, skipping ...')
+                    logger.info('      Someone is working on this region, skipping ...')
                     continue
             
         check = checkForComplete(dbname, key)
