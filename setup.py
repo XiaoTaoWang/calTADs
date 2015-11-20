@@ -30,11 +30,10 @@ setup(
     author_email = 'wangxiaotao868@163.com',
     url = 'https://github.com/XiaoTaoWang/calTADs/',
     description = 'A hierarchical domain caller for Hi-C data based on a modified version of Directionality Index',
-    keywords = 'Hi-C TAD DI domain chromosome organization',
+    keywords = 'Hi-C TAD DI directionality index topologically associating domain chromosome organization',
     package_dir = {'calTADs':'lib'},
     packages = ['calTADs'],
     scripts = ['script/calTADs'],
-    package_data = {'calTADs':['data/*']},
     long_description = read('README.rst'),
     classifiers = [
         'Programming Language :: Python :: 2.6',
@@ -44,6 +43,5 @@ setup(
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
-        'Topic :: Scientific/Engineering :: Mathematics'
         ]
     )
