@@ -29,7 +29,7 @@ setup(
     author = lib.__author__,
     author_email = 'wangxiaotao868@163.com',
     url = 'https://github.com/XiaoTaoWang/calTADs/',
-    description = 'A hierarchical domain caller for Hi-C data based on a modified version of DI',
+    description = 'A hierarchical domain caller for Hi-C data based on a modified version of Directionality Index',
     keywords = 'Hi-C TAD DI domain chromosome organization',
     package_dir = {'calTADs':'lib'},
     packages = ['calTADs'],
