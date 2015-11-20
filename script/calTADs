@@ -178,6 +178,8 @@ def run():
             except:
                 changeJobState(dbname, key, 'Stage-1', state = 0)
                 traceback.print_exc(file = open(args.logFile, 'a'))
+                sys.exit(1)
+                
             changeJobState(dbname, key, 'Stage-1', state = 2)
         else:
             while Stage_1 != 2:
@@ -213,6 +215,8 @@ def run():
                 except:
                     changeJobState(dbname, key, 'Stage-2', chrom = c, state = 0)
                     traceback.print_exc(file = open(args.logFile, 'a'))
+                    sys.exit(1)
+                    
                 changeJobState(dbname, key, 'Stage-2', chrom = c, state = 2, params = (A, B, pi))
                 logger.info('    Done!')
             else:
@@ -238,6 +242,8 @@ def run():
                     except:
                         changeJobState(dbname, key, 'Stage-3', chrom = c, state = 0, region = region)
                         traceback.print_exc(file = open(args.logFile, 'a'))
+                        sys.exit(1)
+                        
                     changeJobState(dbname, key, 'Stage-3', chrom = c, state = 2, region = region)
                 else:
                     logger.info('      Someone is working on this region, skipping ...')
@@ -260,6 +266,8 @@ def run():
                 except:
                     changeJobState(dbname, key, 'Stage-4', state = 0)
                     traceback.print_exc(file = open(args.logFile, 'a'))
+                    sys.exit(1)
+                    
                 changeJobState(dbname, key, 'Stage-4', state = 2)
             else:
                 if Stage_4 == 1:
