@@ -36,7 +36,7 @@ where GHMM_HOME is the installation directory you choose for GHMM.
 
 .. note:: You may run into such error "/bin/rm cannot remove 'libtoolT': no such file
    or directory" when you configure GHMM for your system, then you can try to edit
-   the configure file and remove the line containing `$RM "$cfgfile"`, and configure
+   the configure file and remove the line containing ``$RM "$cfgfile"``, and configure
    GHMM again.
 
 You need to reset your LD_LIBRARY_PATH environment variables then. Use vi command
