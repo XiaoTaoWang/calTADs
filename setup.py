@@ -34,7 +34,7 @@ setup(
     package_dir = {'calTADs':'lib'},
     packages = ['calTADs'],
     scripts = ['script/calTADs'],
-    long_description = read('README.rst'),
+    long_description = lib.long_description,
     classifiers = [
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
