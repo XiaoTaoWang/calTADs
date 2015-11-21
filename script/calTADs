@@ -5,15 +5,23 @@
 # Author: XiaoTao Wang
 # Organization: HuaZhong Agricultural University
 
-import argparse, sys, logging, logging.handlers, random, copy, os, datetime, traceback
+import argparse, sys, logging, logging.handlers, random, copy, os, datetime,\
+       traceback, calTADs
 import numpy as np
 from calTADs import myshelve
+
+currentVersion = calTADs.__version__
 
 def getargs():
     ## Construct an ArgumentParser object for command-line arguments
     parser = argparse.ArgumentParser(usage = '%(prog)s <-O output> [options]',
-                                     description = 'TAD identification.',
+                                     description = '''A hierarchical domain caller for Hi-C
+                                     data based on a modified version of Directionality Index''',
                                      formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    
+    parser.add_argument('-v', '--version', action = 'version',
+                        version = ' '.join(['%(prog)s', currentVersion]),
+                        help = 'Print version number and exit')
 
     # Output
     parser.add_argument('-O', '--output', help = 'Prefix of the generated TAD file.')
