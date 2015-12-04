@@ -5,22 +5,15 @@
 # Author: XiaoTao Wang
 # Organization: HuaZhong Agricultural University
 
-import argparse, sys, logging, logging.handlers, random, copy, os, datetime,\
-       traceback, calTADs
+import argparse, sys, logging, logging.handlers, random, copy, os, datetime, traceback
 import numpy as np
 from calTADs import myshelve
-
-currentVersion = calTADs.__version__
 
 def getargs():
     ## Construct an ArgumentParser object for command-line arguments
     parser = argparse.ArgumentParser(usage = '%(prog)s <-O output> [options]',
-                                     description = '''A hierarchical domain caller for Hi-C data''',
+                                     description = 'TAD identification.',
                                      formatter_class = argparse.ArgumentDefaultsHelpFormatter)
-    
-    parser.add_argument('-v', '--version', action = 'version',
-                        version = ' '.join(['%(prog)s', currentVersion]),
-                        help = 'Print version number and exit')
 
     # Output
     parser.add_argument('-O', '--output', help = 'Prefix of the generated TAD file.')
@@ -56,9 +49,7 @@ def getargs():
     parser.add_argument('-S', '--saveto', help = 'Prefix of output .npz file name, path '
                         'not included. Required with "--immortal".')
     
-    ## Related to TAD identification
-    parser.add_argument('--DI-Def', default = 'welch', choices = ['welch', 'diff', 'arrowhead'],
-                        help = '''Different definition for directionality index.''')
+    ## Related to TAD calculation
     parser.add_argument('-w', '--window', type = int, nargs = '+', default = [30, 60, 100, 200, 400],
                         help = '''Window size used in DI (Directionality Index) calculation.
                         It tells how far we need to look at the interaction patterns of a
@@ -122,7 +113,6 @@ def run():
             arglist.extend(['# input NPZ prefix = %s' % args.prefix])
         
         arglist.extend(['# data resolution = %s' % args.resolution,
-                        '# directionality index = %s' % args.DI_Def,
                         '# window size = %s' % args.window,
                         '# maximum gap size = %s' % args.maxgaplen,
                         '# minimum domain size = %s' % args.minsize])
@@ -133,15 +123,12 @@ def run():
         argtxt = '\n'.join(arglist)
         logger.info('\n' + argtxt)
         
-        DI_definitions = {'welch':welchDI, 'diff':diffDI, 'arrowhead':arrowheadDI}
-        calDI = DI_definitions[args.DI_Def]
-        
         ### Generate the folder for task queue system if not yet
         des = os.path.abspath(os.path.expanduser('~/.SubDomainCaller'))
         if not os.path.exists(des):
             os.mkdir(des)
         key = str((args.path, args.Format, args.resolution, args.prefix, args.template, args.cols,
-                   sorted(args.chroms), args.DI_Def, sorted(args.window), args.maxgaplen, args.minsize))
+                   sorted(args.chroms), sorted(args.window), args.maxgaplen, args.minsize))
         dbname = os.path.join(des, 'TaskQueues')
         register(dbname, key)
         
@@ -179,7 +166,7 @@ def run():
                     multiDI['end'] = np.arange(1, Len + 1) * args.resolution
                     for i in args.window:
                         field_name = '-'.join(['DI', str(i)])
-                        mDI = calDI(idata, i)
+                        mDI = modDI(idata, i)
                         multiDI[field_name] = mDI
                     np.savetxt(writeout, multiDI, delimiter = '\t', fmt = ['%s','%d','%d'] + ['%.7e'] * len(args.window))
                     changeJobState(dbname, key, 'Stage-2', chrom = c, state = 0)
@@ -222,7 +209,7 @@ def run():
                 logger.info('    Training HMM model ...')
                 changeJobState(dbname, key, 'Stage-2', chrom = c, state = 1)
                 try:
-                    A, B, pi = learning(regionDIs, args.DI_Def)
+                    A, B, pi = learning(regionDIs)
                     for region in regionDIs:
                         changeJobState(dbname, key, 'Stage-3', chrom = c, state = 0, region = region)
                 except:
@@ -417,8 +404,10 @@ def splitChrom(chromDI, maxgaplen, minregion, fields):
     
     return chromRegions, forceStates 
             
-def welchDI(idata, window):
-    
+def modDI(idata, window):
+    """
+    Calculate modified DI, which considering local standard deviation.
+    """
     chromLen = idata['bin2'].max() + 1
     mask = ((idata['bin2'] - idata['bin1']) <= window) & (idata['bin2'] != idata['bin1'])
     idata = idata[mask]
@@ -426,13 +415,19 @@ def welchDI(idata, window):
     Rbound = idata['bin2'].max()
     Len = Rbound + 1
     
+    # Sum of downstream interactions
     sumD = np.bincount(idata['bin1'], weights = idata['IF'])
+    # Number of downstream interactions
     numD = np.bincount(idata['bin1'])
+    # Average downstream interactions
     meanD = np.zeros_like(sumD)
     numfilter1 = numD > 2
     meanD[numfilter1] = sumD[numfilter1] / numD[numfilter1]
+    # Sum of upstream interactions
     sumU = np.bincount(idata['bin2'], weights = idata['IF'])
+    # Number of upstream interactions
     numU = np.bincount(idata['bin2'])
+    # Average downstream interactions
     meanU = np.zeros_like(sumU)
     numfilter2 = numU > 2
     meanU[numfilter2] = sumU[numfilter2] / numU[numfilter2]
@@ -465,90 +460,9 @@ def welchDI(idata, window):
     corrected[:Len] = mDI
     
     return corrected
-
-def diffDI(idata, window):
     
-    from scipy import sparse
     
-    chromLen = idata['bin2'].max() + 1
-    mask = ((idata['bin2'] - idata['bin1']) <= window) & (idata['bin2'] != idata['bin1'])
-    idata = idata[mask]
-    
-    extendLen = chromLen + 2*window
-    coo_sparse = sparse.coo_matrix((idata['IF'], (idata['bin1']+window,
-                                    idata['bin2']+window)), shape = (extendLen, extendLen))
-    csr_sparse = coo_sparse.tocsr()
-    
-    DIs = []
-    for i in range(window, extendLen - window):
-        temp = csr_sparse[i, (i+1):(i+window)].toarray().ravel() - \
-               csr_sparse[(i-window):(i-1), i].toarray().ravel()
-        mean_D = temp.mean()
-        std_D = temp.std(ddof = 1)
-        if std_D == 0:
-            DIs.append(0)
-        else:
-            t = mean_D / std_D * np.sqrt(mean_D.size)
-            DIs.append(t)
-    
-    DIs = np.array(DIs)
-    
-    return DIs
-
-def arrowheadDI(idata, window):
-    
-    from scipy import sparse
-    
-    chromLen = idata['bin2'].max() + 1
-    mask = ((idata['bin2'] - idata['bin1']) <= window) & (idata['bin2'] != idata['bin1'])
-    idata = idata[mask]
-    
-    extendLen = chromLen + 2*window
-    coo_sparse = sparse.coo_matrix((idata['IF'], (idata['bin1']+window,
-                                    idata['bin2']+window)), shape = (extendLen, extendLen))
-    csr_sparse = coo_sparse.tocsr()
-    
-    DIs = []
-    for i in range(window, extendLen - window):
-        downstreams = csr_sparse[i, (i+1):(i+window)].toarray().ravel()
-        upstreams = csr_sparse[(i-window):(i-1), i].toarray().ravel()
-        
-        D = downstreams - upstreams
-        background = downstreams + upstreams
-        A = np.zeros(D.size)
-        mask = background != 0
-        A[mask] = D[mask] / background[mask]
-        mean_A = A.mean()
-        DIs.append(mean_A)
-    
-    DIs = np.array(DIs)
-
-def genHMMParams(DI_Def):
-    
-    db = {'welch': [7.5, 2.5, 7.5],
-          'diff': [0.7, 0.2, 0.15],
-          'arrowhead': [0.7, 0.2, 0.15]}
-    
-    # Four Hidden States: 0 -- start, 1 -- downstream, 2 -- upstream, 3 -- end
-    A = [[0., 1., 0., 0.], [0., 0.5, 0.5, 0.],
-         [0., 0., 0.5, 0.5], [1., 0., 0., 0.]]
-    pi = [0.2, 0.3, 0.3, 0.2]
-    numdists = 3 # Three-distribution Gaussian Mixtures
-    W = 1. / numdists
-    
-    scale = db[DI_Def]
-    var = scale[-1] / (numdists - 1)
-    means = [[], [], [], []]
-    for i in range(numdists):
-        means[0].append(i * scale[0] / ( numdists - 1 ) + scale[1])
-        means[1].append(i * scale[0] / ( numdists - 1 ))
-        means[2].append(-i * scale[0] / ( numdists - 1 ))
-        means[3].append(-i * scale[0] / ( numdists - 1 ) - scale[1])
-    B = [[means[i], [var for j in range(numdists)], [W for k in range(numdists)]] for i in range(4)]
-    
-    return A, B, pi
-    
-def learning(regionDIs, DI_Def):
+def learning(regionDIs):
     """
     Train HMM model using all DI tracks from all regions of a chromosome.
     """
@@ -567,22 +481,35 @@ def learning(regionDIs, DI_Def):
     random.shuffle(seqs)
     train_seqs = ghmm.SequenceSet(F, seqs)
     
-    A, B, pi = genHMMParams(DI_Def)
+    # Hidden States: 0 -- start, 1 -- downstream, 2 -- upstream, 3 -- end
+    A = [[0., 1., 0., 0.], [0., 0.5, 0.5, 0.],
+         [0., 0., 0.5, 0.5], [1., 0., 0., 0.]]
+    pi = [0.2, 0.3, 0.3, 0.2]
+    numdists = 3 # Three-distribution Gaussian Mixtures
+    W = 1. / numdists
+    var = 7.5 / (numdists - 1)
+    means = [[], [], [], []]
+    for i in range(numdists):
+        means[0].append(i * 7.5 / ( numdists - 1 ) + 2.5)
+        means[1].append(i * 7.5 / ( numdists - 1 ))
+        means[2].append(-i * 7.5 / ( numdists - 1 ))
+        means[3].append(-i * 7.5 / ( numdists - 1 ) - 2.5)
+    B = [[means[i], [var for j in range(numdists)], [W for k in range(numdists)]] for i in range(4)]
     
     # Training ...
     model = ghmm.HMMFromMatrices(F, ghmm.GaussianMixtureDistribution(F), A, B, pi)
     model.baumWelch(train_seqs)
     
     A = np.zeros((4, 4))
-    B = np.zeros((4, 3, 3))
+    B = np.zeros((4, 3, numdists))
     pi = np.zeros(4)
     
     for i in range(4):
         for j in range(4):
             A[i, j] = model.getTransition(i, j)
-        for j in range(3): # num of distributions
+        for j in range(numdists):
             temp = model.getEmission(i, j)
-            for k in range(3): # Mean, var, weight
+            for k in range(3):
                 B[i, k, j] = temp[k]
         
         pi[i] = model.getInitial(i)
