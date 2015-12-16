@@ -58,7 +58,15 @@ def getargs():
                         help = '''Maximum gap size we can tolerate in a domain. Unit: RESOLUTION''')
     parser.add_argument('-m', '--minsize', type = int, default = 20,
                         help = '''Minimum size of a domain. Unit: RESOLUTION''')
+    
+    ## Related to HMM model training process
+    parser.add_argument('--maxSteps', type = int, default = 500,
+                        help = '''Maximum number of Baum-Welch iteration steps.''')
+    parser.add_argument('--likelihoodcutoff', type = float, default = 0.0001,
+                        help = '''The least relative improvement in likelihood with respect to
+                        the last Baum-Welch iteration required to continue.''')
     parser.add_argument('--logFile', default = 'calTADs.log', help = '''Logging file name.''')
+    
     ## Parse the command-line arguments
     commands = sys.argv[1:]
     if not commands:
@@ -115,7 +123,9 @@ def run():
         arglist.extend(['# data resolution = %s' % args.resolution,
                         '# window size = %s' % args.window,
                         '# maximum gap size = %s' % args.maxgaplen,
-                        '# minimum domain size = %s' % args.minsize])
+                        '# minimum domain size = %s' % args.minsize,
+                        '# maximum Baum-Welch steps = %s' % args.maxSteps,
+                        '# likelihood cutoff = %s' % args.likelihoodcutoff])
         if args.immortal:
             arglist.append('# output NPZ prefix = %s' % args.saveto)
         arglist.append('# Log file name = %s' % args.logFile)
@@ -128,7 +138,8 @@ def run():
         if not os.path.exists(des):
             os.mkdir(des)
         key = str((args.path, args.Format, args.resolution, args.prefix, args.template, args.cols,
-                   sorted(args.chroms), sorted(args.window), args.maxgaplen, args.minsize))
+                   sorted(args.chroms), sorted(args.window), args.maxgaplen, args.minsize,
+                   args.maxSteps, args.likelihoodcutoff))
         dbname = os.path.join(des, 'TaskQueues')
         register(dbname, key)
         
@@ -209,7 +220,7 @@ def run():
                 logger.info('    Training HMM model ...')
                 changeJobState(dbname, key, 'Stage-2', chrom = c, state = 1)
                 try:
-                    A, B, pi = learning(regionDIs)
+                    A, B, pi = learning(regionDIs, args.maxSteps, args.likelihoodcutoff)
                     for region in regionDIs:
                         changeJobState(dbname, key, 'Stage-3', chrom = c, state = 0, region = region)
                 except:
@@ -462,7 +473,7 @@ def modDI(idata, window):
     return corrected
     
     
-def learning(regionDIs):
+def learning(regionDIs, maxIter = 500, likelihood = 0.0001):
     """
     Train HMM model using all DI tracks from all regions of a chromosome.
     """
@@ -498,7 +509,7 @@ def learning(regionDIs):
     
     # Training ...
     model = ghmm.HMMFromMatrices(F, ghmm.GaussianMixtureDistribution(F), A, B, pi)
-    model.baumWelch(train_seqs)
+    model.baumWelch(train_seqs, maxIter, likelihood)
     
     A = np.zeros((4, 4))
     B = np.zeros((4, 3, numdists))
