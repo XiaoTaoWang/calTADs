@@ -7,13 +7,20 @@
 
 import argparse, sys, logging, logging.handlers, random, copy, os, datetime, traceback
 import numpy as np
+import calTADs
 from calTADs import myshelve
+
+currentVersion = calTADs.__version__
 
 def getargs():
     ## Construct an ArgumentParser object for command-line arguments
     parser = argparse.ArgumentParser(usage = '%(prog)s <-O output> [options]',
                                      description = 'TAD identification.',
                                      formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    
+    parser.add_argument('-v', '--version', action = 'version',
+                        version = ' '.join(['%(prog)s', currentVersion]),
+                        help = 'Print version number and exit')
 
     # Output
     parser.add_argument('-O', '--output', help = 'Prefix of the generated TAD file.')
@@ -92,7 +99,7 @@ def run():
      # Parse Arguments
     args, commands = getargs()
     # Improve the performance if you don't want to run it
-    if commands[0] not in ['-h', '--help']:
+    if commands[0] not in ['-h', '-v', '--help', '--version']:
         ## Root Logger Configuration
         logger = logging.getLogger()
         logger.setLevel(20)
