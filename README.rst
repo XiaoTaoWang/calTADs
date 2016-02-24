@@ -12,7 +12,7 @@ profile using some statistic(e.g. Directionality Index, DI); Then, use the
 1d profile to identify potential boundaries and produce a set of discrete
 non-overlapping TADs. However, the organization of chromosome structure is
 always intricate and hierarchical. Phillips-Cremins JE et al. [3]_ utilized
-a modified DI of multiple scales subdivided TADs into smaller subtopologies (sub-TADs)
+a modified DI of multiple scales subdividing TADs into smaller subtopologies (sub-TADs)
 using 5C data. Here, I extend their algorithm to the whole genome and develop
 this software.
 
