@@ -7,18 +7,15 @@ calTADs is developed and tested on UNIX-like operating system, and following Pyt
 packages are recommended:
 
 - Python (2.x >= 2.6, not compatible with 3.x)
-- Numpy (>= 1.6)
-- Scipy library (>= 0.10)
+- TADLib (>= 0.2.4)
 - ghmm (>= 0.9)
 
 .. note:: Tested systems: Red Hat Enterprise Linux Server release 6.4 (Santiago)
 
 Installation
 =============
-Firstly, use `conda <http://conda.pydata.org/miniconda.html>`_ to manage Python
-environment and install *numpy* and *scipy*::
-
-    $ conda install numpy scipy
+To install TADLib, please refer to
+`TADLib Installation Guide <https://github.com/XiaoTaoWang/TADLib/blob/master/INSTALL.rst>`_.
 
 The General Hidden Markov Model library (`GHMM <http://sourceforge.net/projects/ghmm/>`_)
 is originally developed in *C*, which is not maintained at Binstar or PyPI, and has to
@@ -57,7 +54,6 @@ base directory::
 
 Now, you can install calTADs using *easy_install*::
 
-    $ conda install setuptools
     $ easy_install calTADs
 
 Enjoy it!
