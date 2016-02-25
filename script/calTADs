@@ -395,6 +395,7 @@ def splitChrom(chromDI, maxgaplen, minregion, fields):
     valid_pos = np.where(np.all(DI_values != 0, axis = 1))[0]
     gapsizes = valid_pos[1:] - valid_pos[:-1]
     endsIdx = np.where(gapsizes > (maxgaplen + 1))[0]
+            
     startsIdx = endsIdx + 1
     
     chromRegions = {}
@@ -420,7 +421,17 @@ def splitChrom(chromDI, maxgaplen, minregion, fields):
             forceStates[(start, end)] = np.zeros(chromRegions[(start, end)].shape,
                                                  dtype = np.int8) - 1
     
-    return chromRegions, forceStates 
+    if not startsIdx.size:
+        start = valid_pos[0]
+        end = valid_pos[-1]
+        if end - start > minregion:
+            chromRegions[(start, end)] = DI_values[start:end]
+            forceStates[(start, end)] = np.zeros(chromRegions[(start, end)].shape,
+                                                 dtype = np.int8) - 1
+    if not len(chromRegions):
+        raise ValueError('Empty DI sequences for HMM training')
+    
+    return chromRegions, forceStates
             
 def modDI(idata, window):
     """
