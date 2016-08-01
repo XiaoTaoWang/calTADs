@@ -1,3 +1,8 @@
+calTADs
+*******
+.. image:: https://zenodo.org/badge/doi/10.5281/zenodo.59188.svg
+   :target: http://dx.doi.org/10.5281/zenodo.59188
+
 Introduction
 ============
 3C-based techniques(5C, Hi-C) have revealed the existence of topologically
@@ -68,3 +73,7 @@ Reference
 .. [5] Rao SS, Huntley MH, Durand NC. A 3D map of the human genome at
    kilobase resolution reveals principles of chromatin looping.
    Cell, 2014, 159(7):1665-80.
+
+Citation
+========
+Xiaotao Wang. (2016). calTADs: A hierarchical domain caller for Hi-C data. Zenodo. `10.5281/zenodo.59188 <http://dx.doi.org/10.5281/zenodo.59188>`_
