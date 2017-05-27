@@ -3,6 +3,10 @@ calTADs
 .. image:: https://zenodo.org/badge/doi/10.5281/zenodo.59188.svg
    :target: http://dx.doi.org/10.5281/zenodo.59188
 
+.. note:: calTADs won't be maintained anymore, if you are interested in hierarchical domain
+   detection, I recommend using our recent software, HiTAD. HiTAD is developed as a module
+   of our TADLib toolkit, and you can get it `here <https://pypi.python.org/pypi/TADLib>`_.
+
 Introduction
 ============
 3C-based techniques(5C, Hi-C) have revealed the existence of topologically
