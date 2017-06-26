@@ -31,7 +31,7 @@ def getargs():
                                ' and relative path.')
     parser.add_argument('-F', '--Format', default = 'NPZ', choices = ['TXT', 'NPZ'],
                         help = 'Format of source data file')
-    parser.add_argument('-R', '--resolution', default = 5000, type = int,
+    parser.add_argument('-R', '--resolution', default = 20000, type = int,
                         help = 'Resolution of the binned data')
     parser.add_argument('-T', '--template', default = 'chr%s_chr%s.int',
                         help = 'Template for matching file names using regular expression.'
@@ -57,13 +57,11 @@ def getargs():
                         'not included. Required with "--immortal".')
     
     ## Related to TAD calculation
-    parser.add_argument('-w', '--window', type = int, nargs = '+', default = [30, 60, 100, 200, 400],
+    parser.add_argument('-w', '--window', type = int, nargs = '+', default = [10, 20, 50, 100],
                         help = '''Window size used in DI (Directionality Index) calculation.
                         It tells how far we need to look at the interaction patterns of a
                         given bin. Unit: RESOLUTION.''')
-    parser.add_argument('-g', '--maxgaplen', type = int, default = 5,
-                        help = '''Maximum gap size we can tolerate in a domain. Unit: RESOLUTION''')
-    parser.add_argument('-m', '--minsize', type = int, default = 20,
+    parser.add_argument('-m', '--minsize', type = int, default = 4,
                         help = '''Minimum size of a domain. Unit: RESOLUTION''')
     
     parser.add_argument('--logFile', default = 'calTADs.log', help = '''Logging file name.''')
@@ -99,7 +97,7 @@ def run():
         logger.setLevel(20)
         
         filehandler = logging.handlers.RotatingFileHandler(args.logFile,
-                                                           maxBytes = 500000,
+                                                           maxBytes = 200000,
                                                            backupCount = 5)
         filehandler.setLevel('INFO')
         formatter = logging.Formatter(fmt = '%(name)-14s %(levelname)-7s @ %(asctime)s: %(message)s',
@@ -123,7 +121,6 @@ def run():
         
         arglist.extend(['# data resolution = %s' % args.resolution,
                         '# window size = %s' % args.window,
-                        '# maximum gap size = %s' % args.maxgaplen,
                         '# minimum domain size = %s' % args.minsize])
         if args.immortal:
             arglist.append('# output NPZ prefix = %s' % args.saveto)
@@ -137,17 +134,18 @@ def run():
         if not os.path.exists(des):
             os.mkdir(des)
         key = str((args.path, args.Format, args.resolution, args.prefix, args.template, args.cols,
-                   sorted(args.chroms), sorted(args.window), args.maxgaplen, args.minsize))
+                   sorted(args.chroms), sorted(args.window), args.minsize))
         dbname = os.path.join(des, 'TaskQueues')
         register(dbname, key)
         
-        minregion = max(20, 200000 / args.resolution)
+        maxgaplen = 100000 // args.resolution
+        minregion = maxgaplen * 2
         
         dicts = {'path': args.path, 'Format': args.Format, 'resolution': args.resolution,
                  'template': args.template, 'chroms': args.chroms, 'cols': args.cols,
                  'prefix': args.prefix, 'immortal': args.immortal, 'saveto': args.saveto}
         
-        from tadlib import analyze
+        from tadlib.calfea import analyze
         
         DI_filename = '.'.join([args.output, 'modifiedDI', 'txt'])
         args.window = sorted(args.window)
@@ -207,7 +205,7 @@ def run():
             logger.info('  Chromosome %s ...', c)
             chromDI = DIs[DIs['chr'] == c]
             logger.info('    Split chromosome by large gaps ...')
-            regionDIs, forceStates = splitChrom(chromDI, args.maxgaplen, minregion, fields)
+            regionDIs, forceStates = splitChrom(chromDI, maxgaplen, minregion, fields)
             for region in regionDIs:
                 tempfile = '.'.join([args.output, c, str(region[0]*args.resolution),
                                      str(region[1]*args.resolution), 'hmmdomain', 'txt'])
@@ -380,10 +378,9 @@ def splitChrom(chromDI, maxgaplen, minregion, fields):
     """
     Split a chromosome into gap-free regions.
     """
-    
     DI_values = np.r_[[chromDI[i] for i in fields]]
     DI_values = DI_values.T
-    valid_pos = np.where(np.all(DI_values != 0, axis = 1))[0]
+    valid_pos = np.where(np.all(DI_values!=0, axis=1))[0]
     gapsizes = valid_pos[1:] - valid_pos[:-1]
     endsIdx = np.where(gapsizes > (maxgaplen + 1))[0]
             
@@ -426,7 +423,7 @@ def splitChrom(chromDI, maxgaplen, minregion, fields):
             
 def modDI(idata, window):
     """
-    Calculate modified DI, which considering local standard deviation.
+    Calculate modified DI, which considers local standard deviation.
     """
     chromLen = idata['bin2'].max() + 1
     mask = ((idata['bin2'] - idata['bin1']) <= window) & (idata['bin2'] != idata['bin1'])
@@ -435,46 +432,49 @@ def modDI(idata, window):
     Rbound = idata['bin2'].max()
     Len = Rbound + 1
     
-    # Sum of downstream interactions
-    sumD = np.bincount(idata['bin1'], weights = idata['IF'])
-    # Number of downstream interactions
-    numD = np.bincount(idata['bin1'])
-    # Average downstream interactions
-    meanD = np.zeros_like(sumD)
-    numfilter1 = numD > 2
-    meanD[numfilter1] = sumD[numfilter1] / numD[numfilter1]
     # Sum of upstream interactions
     sumU = np.bincount(idata['bin2'], weights = idata['IF'])
     # Number of upstream interactions
     numU = np.bincount(idata['bin2'])
     # Average downstream interactions
     meanU = np.zeros_like(sumU)
-    numfilter2 = numU > 2
-    meanU[numfilter2] = sumU[numfilter2] / numU[numfilter2]
+    numfilter1 = numU > 2
+    meanU[numfilter1] = sumU[numfilter1] / numU[numfilter1]
+    
+    # Sum of downstream interactions
+    sumD = np.bincount(idata['bin1'], weights = idata['IF'])
+    # Number of downstream interactions
+    numD = np.bincount(idata['bin1'])
+    # Average downstream interactions
+    meanD = np.zeros_like(sumD)
+    numfilter2 = numD > 2
+    meanD[numfilter2] = sumD[numfilter2] / numD[numfilter2]
     
     ## Pooled standard deviation
     squareIF = idata['IF'] ** 2
-    sumSquareD = np.bincount(idata['bin1'], weights = squareIF)
     sumSquareU = np.bincount(idata['bin2'], weights = squareIF)
-    meanSquareD = np.zeros_like(sumSquareD); meanSquareU = np.zeros_like(sumSquareU)
-    meanSquareD[numfilter1] = sumSquareD[numfilter1] / numD[numfilter1]
-    meanSquareU[numfilter2] = sumSquareU[numfilter2] / numU[numfilter2]
-    SD_1 = np.zeros_like(meanSquareD); SD_2 = np.zeros_like(meanSquareU)
-    SD_1[numfilter1] = (meanSquareD[numfilter1] - meanD[numfilter1] ** 2) / (numD[numfilter1] - 1)
-    SD_2[numfilter2] = (meanSquareU[numfilter2] - meanU[numfilter2] ** 2) / (numU[numfilter2] - 1)
+    sumSquareD = np.bincount(idata['bin1'], weights = squareIF)
+    meanSquareU = np.zeros_like(sumSquareU)
+    meanSquareD = np.zeros_like(sumSquareD)
+    meanSquareU[numfilter1] = sumSquareU[numfilter1] / numU[numfilter1]
+    meanSquareD[numfilter2] = sumSquareD[numfilter2] / numD[numfilter2]
+    SD_1 = np.zeros_like(meanSquareU)
+    SD_2 = np.zeros_like(meanSquareD)
+    SD_1[numfilter1] = (meanSquareU[numfilter1] - meanU[numfilter1] ** 2) / (numU[numfilter1] - 1)
+    SD_2[numfilter2] = (meanSquareD[numfilter2] - meanD[numfilter2] ** 2) / (numD[numfilter2] - 1)
     
     cmeanU = np.zeros(Len)
     cmeanD = np.zeros(Len)
     cSD_1 = np.zeros(Len)
     cSD_2 = np.zeros(Len)
     cmeanU[(Len-meanU.size):] = meanU; cmeanD[:meanD.size] = meanD
-    cSD_1[:SD_1.size] = SD_1; cSD_2[(Len-SD_2.size):] = SD_2
+    cSD_1[(Len-SD_1.size):] = SD_1; cSD_2[:SD_2.size] = SD_2
     SD_Pool = np.sqrt(cSD_1 + cSD_2)
     
     # Modified DI
     mDI = np.zeros(cmeanU.size)
     badMask = SD_Pool != 0
-    mDI[badMask] = (cmeanD[badMask] - cmeanU[badMask]) / SD_Pool[badMask]
+    mDI[badMask] = (cmeanU[badMask] - cmeanD[badMask]) / SD_Pool[badMask]
     
     corrected = np.zeros(chromLen)
     corrected[:Len] = mDI
@@ -482,7 +482,7 @@ def modDI(idata, window):
     return corrected
     
     
-def learning(regionDIs, maxIter = 500, likelihood = 0.0001):
+def learning(regionDIs):
     """
     Train HMM model using all DI tracks from all regions of a chromosome.
     """
@@ -510,15 +510,15 @@ def learning(regionDIs, maxIter = 500, likelihood = 0.0001):
     var = 7.5 / (numdists - 1)
     means = [[], [], [], []]
     for i in range(numdists):
-        means[0].append(i * 7.5 / ( numdists - 1 ) + 2.5)
-        means[1].append(i * 7.5 / ( numdists - 1 ))
-        means[2].append(-i * 7.5 / ( numdists - 1 ))
-        means[3].append(-i * 7.5 / ( numdists - 1 ) - 2.5)
+        means[3].append(i * 7.5 / ( numdists - 1 ) + 2.5)
+        means[2].append(i * 7.5 / ( numdists - 1 ))
+        means[1].append(-i * 7.5 / ( numdists - 1 ))
+        means[0].append(-i * 7.5 / ( numdists - 1 ) - 2.5)
     B = [[means[i], [var for j in range(numdists)], [W for k in range(numdists)]] for i in range(4)]
     
     # Training ...
     model = ghmm.HMMFromMatrices(F, ghmm.GaussianMixtureDistribution(F), A, B, pi)
-    model.baumWelch(train_seqs, maxIter, likelihood)
+    model.baumWelch(train_seqs)
     
     A = np.zeros((4, 4))
     B = np.zeros((4, 3, numdists))
