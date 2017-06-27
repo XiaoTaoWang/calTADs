@@ -249,9 +249,12 @@ def run():
                         tempfile = pieces[(c, region)]
                         outputDomains(tempfile, domains, args.resolution)
                     except:
+                        '''
                         changeJobState(dbname, key, 'Stage-3', chrom = c, state = 0, region = region)
                         traceback.print_exc(file = open(args.logFile, 'a'))
                         sys.exit(1)
+                        '''
+                        logger.warning('      Error occurs, skipping ...')
                         
                     changeJobState(dbname, key, 'Stage-3', chrom = c, state = 2, region = region)
                 else:
@@ -264,13 +267,24 @@ def run():
         check = checkForComplete(dbname, key)
         if check:
             domainfile = '.'.join([args.output, 'hmmdomain', 'txt'])
-            logger.info('Output domain positions into %s ...', domainfile)
             Stage_4 = getJobState(dbname, key, 'Stage-4')
             if Stage_4 == 0:
                 changeJobState(dbname, key, 'Stage-4', state = 1)
                 try:
                     piecefiles = pieces.values()
-                    domains = [line.rstrip().split() for f in piecefiles for line in open(f) if not line.startswith('#')]
+                    count = 0
+                    domains = []
+                    for f in piecefiles:
+                        if not os.path.exists(f):
+                            count += 1
+                            continue
+                        with open(f) as piece:
+                            for line in piece:
+                                if not line.startswith('#'):
+                                    domains.append(line.rstrip().split())
+                    if count > 0:
+                        logger.warning('Domain calling fails on some regions of some chromosomes')
+                    logger.info('Output domain positions into %s ...', domainfile)
                     outputDomains(domainfile, domains, args.resolution)
                     command = ['rm', '-rf', tempdir]
                     os.system(' '.join(command))
