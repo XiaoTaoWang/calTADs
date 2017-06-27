@@ -178,10 +178,12 @@ def run():
                     np.savetxt(writeout, multiDI, delimiter = '\t', fmt = ['%s','%d','%d'] + ['%.7e'] * len(args.window))
                     changeJobState(dbname, key, 'Stage-2', chrom = c, state = 0)
                     changeJobState(dbname, key, 'Stage-3', chrom = c, state = 0)
+                    del idata
                 writeout.flush()
                 writeout.close()
                 DIs = np.loadtxt(DI_filename, dtype = pooledTP)
                 logger.info('Done!')
+                del workInters
             except:
                 changeJobState(dbname, key, 'Stage-1', state = 0)
                 traceback.print_exc(file = open(args.logFile, 'a'))
